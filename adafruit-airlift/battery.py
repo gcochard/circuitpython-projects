@@ -36,6 +36,8 @@ def lowsleep(s):
     alarm.light_sleep_until_alarms(time_alarm)
 
 if __name__ == "__main__":
+    led = DigitalInOut(board.LED)
+    led.switch_to_output()
     while True:
         ontime = 0.1_0
         offtime = 1
