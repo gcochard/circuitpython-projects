@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 import time
+import rtc
 from microcontroller import cpu
 import board
 import busio
@@ -79,6 +80,9 @@ def on_led_msg(client, topic, message):
     else:
         print("Unexpected message on LED feed.")
 
+# print the firmware version and mac address first
+print('Firmware version:', esp.firmware_version)
+print('MAC address:', [hex(i) for i in esp.MAC_address])
 
 # Connect to WiFi
 print("Connecting to WiFi...")
@@ -113,7 +117,21 @@ io.connect()
 
 # Subscribe to all messages on the led feed
 io.subscribe("led")
-
+current_time = 0
+clock = rtc.RTC()
+SECONDS_PER_HOUR = 60 * 60
+def init_clock(tries=0,tz=-7):
+    try:
+        current_time = esp.get_time()[0]
+        current_time += (tz * SECONDS_PER_HOUR)
+        clock.datetime = time.localtime(current_time)
+    except ValueError:
+        print("Error getting current time")
+        if tries < 3:
+            time.sleep(2**tries)
+            init_clock(tries+1)
+    print("Current time:", clock.datetime)
+init_clock()
 prv_refresh_time = 0.0
 while True:
     # Poll for incoming messages
@@ -125,6 +143,12 @@ while True:
         wifi.connect()
         io.reconnect()
         continue
+    # pulse the LED every minute
+    if (time.monotonic() - prv_refresh_time) > 60:
+        print('.')
+        led_pin.value = not led_pin.value
+        time.sleep(0.5)
+        led_pin.value = not led_pin.value
     # Send a new temperature reading to IO every 30 seconds
     if (time.monotonic() - prv_refresh_time) > 30:
         # take the cpu's temperature
