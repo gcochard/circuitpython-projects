@@ -122,10 +122,28 @@ def disconnected(client):
     # Disconnected function will be called when the client disconnects.
     logger.info("Disconnected from Adafruit IO!")
 
+class Color:
+    def __init__(self):
+        self.cur = 0
+        self.colors = [(255,0,0),(0,255,0),(0,0,255),(255,255,0),(255,0,255),(0,255,255),(255,255,255)]
+        self.random = False
+    def next(self):
+        if self.random:
+            return self.rand()
+        self.cur += 1
+        self.cur %= len(self.colors)
+        return self.colors[self.cur]
+    def rand(self):
+        return (randint(0, 255), randint(0, 255), randint(0, 255))
+    def toggle_rand(self):
+        self.random = not self.random
+
+color = Color()
 
 def on_led_msg(client, topic, message):
     # Method called whenever user/feeds/led has a new value
     logger.debug("New message on topic {0}: {1} ".format(topic, message))
+    color.toggle_rand()
     if message == "ON":
         led_pin.value = True
     elif message == "OFF":
@@ -207,28 +225,15 @@ init_clock()
 prv_refresh_time = 0.0
 prv_blink_time = 0.0
 
-class Color:
-    def __init__(self):
-        self.cur = 0
-        self.colors = [(255,0,0),(0,255,0),(0,0,255),(255,255,0),(255,0,255),(0,255,255),(255,255,255)]
-    def next(self):
-        self.cur += 1
-        self.cur %= len(self.colors)
-        return self.colors[self.cur]
-    def rand(self):
-        return (randint(0, 255), randint(0, 255), randint(0, 255))
-
-color = Color()
 while True:
     # Poll for incoming messages
     try:
         #logger.debug('Running io loop')
         io.loop()
         if switch.value:
+            color.toggle_rand()
             #print('Switch pressed!')
-            neokey[0] = color.rand()
-        else:
-            neokey[0] = color.next()
+        neokey[0] = color.next()
     except (ValueError, RuntimeError, MMQTTException) as e:
         logger.warning("Failed to get data, retrying\n{}".format(e))
         wifi.reset()
