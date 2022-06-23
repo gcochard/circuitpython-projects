@@ -97,7 +97,8 @@ wifi = adafruit_esp32spi_wifimanager.ESPSPI_WiFiManager(esp, secrets)
 led_pin = DigitalInOut(board.LED)
 led_pin.switch_to_output()
 
-neokey = neopixel.NeoPixel(board.GP16, 1, brightness=0.1, auto_write=True)
+NUM_PIXELS = 3
+neokey = neopixel.NeoPixel(board.GP16, NUM_PIXELS, brightness=0.1, auto_write=False)
 
 switch = DigitalInOut(board.GP17)
 # when switch is False, it's pressed
@@ -123,22 +124,31 @@ def disconnected(client):
     logger.info("Disconnected from Adafruit IO!")
 
 class Color:
-    def __init__(self):
+    def __init__(self, n):
         self.cur = 0
         self.colors = [(255,0,0),(0,255,0),(0,0,255),(255,255,0),(255,0,255),(0,255,255),(255,255,255)]
         self.random = False
+        self.p = n
     def next(self):
         if self.random:
-            return self.rand()
-        self.cur += 1
-        self.cur %= len(self.colors)
-        return self.colors[self.cur]
+            val = self.rand()
+        else:
+            self.cur += 1
+            self.cur %= len(self.colors)
+            val = self.colors[self.cur]
+        logger.debug("before: {}".format(self.p))
+        for i in range(len(self.p), 0, -1):
+            #logger.debug(self.p[i-2], self.p[i-1])
+            self.p[i-1] = self.p[i-2]
+        self.p[0] = val
+        logger.debug("after: {}".format(self.p))
+        self.p.show()
     def rand(self):
         return (randint(0, 255), randint(0, 255), randint(0, 255))
     def toggle_rand(self):
         self.random = not self.random
 
-color = Color()
+color = Color(neokey)
 
 def on_led_msg(client, topic, message):
     # Method called whenever user/feeds/led has a new value
@@ -233,7 +243,7 @@ while True:
         if switch.value:
             color.toggle_rand()
             #print('Switch pressed!')
-        neokey[0] = color.next()
+        color.next()
     except (ValueError, RuntimeError, MMQTTException) as e:
         logger.warning("Failed to get data, retrying\n{}".format(e))
         wifi.reset()
