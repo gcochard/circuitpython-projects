@@ -244,37 +244,38 @@ while True:
             color.toggle_rand()
             #print('Switch pressed!')
         color.next()
+
+        # pulse the LED every minute
+        if (time.monotonic() - prv_blink_time) > 60:
+            prv_blink_time = time.monotonic()
+            logger.info('.')
+            led_pin.value = not led_pin.value
+            time.sleep(0.5)
+            led_pin.value = not led_pin.value
+        # Send a new temperature reading to IO every 30 seconds
+        if (time.monotonic() - prv_refresh_time) > 30:
+            # take the cpu's temperature
+            cpu_temp = cpu.temperature
+            # truncate to two decimal points
+            cpu_temp = str(cpu_temp)[:5]
+            logger.debug("CPU temperature is %s degrees C", cpu_temp)
+            # publish it to io
+            logger.debug("Publishing %s to temperature feed...", cpu_temp)
+            io.publish("temperature", cpu_temp)
+            volts = measure_voltage()
+            logger.debug("Publishing %s to voltage feed...", volts)
+            io.publish("voltage", volts)
+            if on_batt():
+                pct = calculate_percentage(volts)
+            else:
+                pct = 100
+            logger.debug("Publishing %s to battery feed...", pct)
+            io.publish("battery", pct)
+            logger.debug("Published!")
+            prv_refresh_time = time.monotonic()
     except (ValueError, RuntimeError, MMQTTException) as e:
         logger.warning("Failed to get data, retrying\n{}".format(e))
         wifi.reset()
         wifi.connect()
         io.reconnect()
         continue
-    # pulse the LED every minute
-    if (time.monotonic() - prv_blink_time) > 60:
-        prv_blink_time = time.monotonic()
-        logger.info('.')
-        led_pin.value = not led_pin.value
-        time.sleep(0.5)
-        led_pin.value = not led_pin.value
-    # Send a new temperature reading to IO every 30 seconds
-    if (time.monotonic() - prv_refresh_time) > 30:
-        # take the cpu's temperature
-        cpu_temp = cpu.temperature
-        # truncate to two decimal points
-        cpu_temp = str(cpu_temp)[:5]
-        logger.debug("CPU temperature is %s degrees C", cpu_temp)
-        # publish it to io
-        logger.debug("Publishing %s to temperature feed...", cpu_temp)
-        io.publish("temperature", cpu_temp)
-        volts = measure_voltage()
-        logger.debug("Publishing %s to voltage feed...", volts)
-        io.publish("voltage", volts)
-        if on_batt():
-            pct = calculate_percentage(volts)
-        else:
-            pct = 100
-        logger.debug("Publishing %s to battery feed...", pct)
-        io.publish("battery", pct)
-        logger.debug("Published!")
-        prv_refresh_time = time.monotonic()
